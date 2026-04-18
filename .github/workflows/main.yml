@@ -19,22 +19,36 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Create fake Xcode team
+      - name: Update iOS deployment target
         run: |
-          # Создаём фейковый xcconfig
-          mkdir -p ios/Flutter
-          cat > ios/Flutter/Release.xcconfig << 'EOF'
-          #include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"
-          #include "Generated.xcconfig"
-          DEVELOPMENT_TEAM=YYYYYYYYYY
-          CODE_SIGN_IDENTITY=
-          CODE_SIGNING_REQUIRED=NO
-          CODE_SIGNING_ALLOWED=NO
-          PROVISIONING_PROFILE_SPECIFIER=
-          EOF
+          # Обновляем в Podfile
+          sed -i '' 's/platform :ios, .*/platform :ios, '\''12.0'\''/' ios/Podfile
+          
+          # Обновляем в Xcode проекте
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 12.0;/g' ios/Runner.xcodeproj/project.pbxproj
+          
+          # Обновляем в Pods если есть
+          if [ -f ios/Podfile ]; then
+            cd ios
+            pod update
+            pod install
+            cd ..
+          fi
 
-      - name: Build with flutter
+      - name: Disable code signing
         run: |
+          sed -i '' 's/CODE_SIGN_IDENTITY = "Apple Development";/CODE_SIGN_IDENTITY = "";/g' ios/Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' ios/Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/DEVELOPMENT_TEAM = .*;/DEVELOPMENT_TEAM = "";/g' ios/Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/PROVISIONING_PROFILE_SPECIFIER = .*;/PROVISIONING_PROFILE_SPECIFIER = "";/g' ios/Runner.xcodeproj/project.pbxproj
+
+      - name: Build iOS without signing
+        run: |
+          flutter clean
+          flutter pub get
+          cd ios
+          pod install
+          cd ..
           flutter build ios --release --no-codesign
 
       - name: Create Payload and IPA
