@@ -1,11 +1,11 @@
-name: Build Unsigned IPA
+name: Build Android APK
 
 on:
   workflow_dispatch:
 
 jobs:
-  build-ios:
-    runs-on: macos-latest
+  build-android:
+    runs-on: ubuntu-latest
     
     steps:
       - uses: actions/checkout@v4
@@ -19,47 +19,20 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Update iOS deployment target
-        run: |
-          # Обновляем в Podfile
-          sed -i '' 's/platform :ios, .*/platform :ios, '\''12.0'\''/' ios/Podfile
-          
-          # Обновляем в Xcode проекте
-          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 12.0;/g' ios/Runner.xcodeproj/project.pbxproj
-          
-          # Обновляем в Pods если есть
-          if [ -f ios/Podfile ]; then
-            cd ios
-            pod update
-            pod install
-            cd ..
-          fi
+      - name: Build APK
+        run: flutter build apk --release
 
-      - name: Disable code signing
-        run: |
-          sed -i '' 's/CODE_SIGN_IDENTITY = "Apple Development";/CODE_SIGN_IDENTITY = "";/g' ios/Runner.xcodeproj/project.pbxproj
-          sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' ios/Runner.xcodeproj/project.pbxproj
-          sed -i '' 's/DEVELOPMENT_TEAM = .*;/DEVELOPMENT_TEAM = "";/g' ios/Runner.xcodeproj/project.pbxproj
-          sed -i '' 's/PROVISIONING_PROFILE_SPECIFIER = .*;/PROVISIONING_PROFILE_SPECIFIER = "";/g' ios/Runner.xcodeproj/project.pbxproj
+      - name: Build AppBundle (AAB)
+        run: flutter build appbundle --release
 
-      - name: Build iOS without signing
-        run: |
-          flutter clean
-          flutter pub get
-          cd ios
-          pod install
-          cd ..
-          flutter build ios --release --no-codesign
-
-      - name: Create Payload and IPA
-        run: |
-          cd build/ios/iphoneos
-          mkdir Payload
-          cp -r Runner.app Payload/
-          zip -r unsigned.ipa Payload
-          
-      - name: Upload unsigned IPA
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: unsigned-ios-build
-          path: build/ios/iphoneos/unsigned.ipa
+          name: app-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Upload AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-aab
+          path: build/app/outputs/bundle/release/app-release.aab
