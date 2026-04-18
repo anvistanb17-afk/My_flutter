@@ -10,6 +10,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -19,22 +25,68 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Fix Gradle compileSdkVersion
+      - name: Fix android/app/build.gradle
         run: |
-          cd android
-          
-          # Обновляем compileSdkVersion в app/build.gradle
-          sed -i 's/compileSdkVersion.*/compileSdkVersion 34/' app/build.gradle
-          sed -i 's/targetSdkVersion.*/targetSdkVersion 34/' app/build.gradle
-          sed -i 's/minSdkVersion.*/minSdkVersion 21/' app/build.gradle
-          
-          # Если строк нет — добавляем
-          if ! grep -q "compileSdkVersion" app/build.gradle; then
-            sed -i '/android {/a \ \ \ \ compileSdkVersion 34' app/build.gradle
-          fi
-          
-          cat app/build.gradle
-          cd ..
+          cat > android/app/build.gradle << 'EOF'
+          plugins {
+              id "com.android.application"
+              id "kotlin-android"
+              id "dev.flutter.flutter-gradle-plugin"
+          }
+
+          def localProperties = new Properties()
+          def localPropertiesFile = rootProject.file("local.properties")
+          if (localPropertiesFile.exists()) {
+              localPropertiesFile.withReader("UTF-8") { reader ->
+                  localProperties.load(reader)
+              }
+          }
+
+          def flutterVersionCode = localProperties.getProperty("flutter.versionCode")
+          if (flutterVersionCode == null) {
+              flutterVersionCode = "1"
+          }
+
+          def flutterVersionName = localProperties.getProperty("flutter.versionName")
+          if (flutterVersionName == null) {
+              flutterVersionName = "1.0"
+          }
+
+          android {
+              namespace "com.example.myapp"
+              compileSdk 34
+              ndkVersion flutter.ndkVersion
+
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_1_8
+                  targetCompatibility JavaVersion.VERSION_1_8
+              }
+
+              kotlinOptions {
+                  jvmTarget = "1.8"
+              }
+
+              defaultConfig {
+                  applicationId "com.example.myapp"
+                  minSdk 21
+                  targetSdk 34
+                  versionCode flutterVersionCode.toInteger()
+                  versionName flutterVersionName
+              }
+
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.debug
+                  }
+              }
+          }
+
+          flutter {
+              source "../.."
+          }
+
+          dependencies {}
+          EOF
 
       - name: Build APK
         run: flutter build apk --release
