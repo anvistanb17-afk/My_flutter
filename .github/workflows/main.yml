@@ -6,7 +6,7 @@ on:
       project_name:
         description: 'Название проекта'
         required: true
-        default: 'my_flutter_app'
+        default: 'my_app'
 
 jobs:
   create:
@@ -22,21 +22,36 @@ jobs:
         with:
           flutter-version: '3.24.0'
 
+      - name: Sanitize project name
+        id: sanitize
+        run: |
+          SAFE_NAME=$(echo "${{ github.event.inputs.project_name }}" | tr '[:upper:]' '[:lower:]' | sed 's/[ -]/_/g' | sed 's/[^a-z0-9_]//g')
+          SAFE_NAME=$(echo "$SAFE_NAME" | sed 's/^_//')
+          if [[ "$SAFE_NAME" =~ ^[0-9] ]]; then
+            SAFE_NAME="app_$SAFE_NAME"
+          fi
+          echo "safe_name=$SAFE_NAME" >> $GITHUB_OUTPUT
+          echo "✅ Project name: $SAFE_NAME"
+
       - name: Create Flutter project
         run: |
-          flutter create ${{ github.event.inputs.project_name }}
+          flutter create ${{ steps.sanitize.outputs.safe_name }}
 
       - name: Move files to root
         run: |
-          shopt -s dotglob
-          mv ${{ github.event.inputs.project_name }}/* .
-          mv ${{ github.event.inputs.project_name }}/.gitignore . 2>/dev/null || true
-          rm -rf ${{ github.event.inputs.project_name }}
+          PROJECT="${{ steps.sanitize.outputs.safe_name }}"
+          
+          # Копируем только содержимое папки проекта, не трогая системные файлы
+          cp -r "$PROJECT"/* .
+          cp "$PROJECT"/.gitignore . 2>/dev/null || true
+          
+          # Удаляем временную папку
+          rm -rf "$PROJECT"
 
       - name: Commit and push
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add .
-          git commit -m "Create Flutter project: ${{ github.event.inputs.project_name }}" || echo "No changes"
+          git commit -m "Create Flutter project: ${{ steps.sanitize.outputs.safe_name }}" || echo "No changes"
           git push
