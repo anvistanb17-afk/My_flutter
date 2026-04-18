@@ -21,29 +21,25 @@ jobs:
         with:
           flutter-version: '3.24.0'
           channel: 'stable'
-          cache: true
+          cache: false  # Отключаем кэш чтоб не подтягивать app_links
 
-      - name: Create .env file
+      - name: Clean pub cache
         run: |
-          echo "SUPABASE_URL=https://pwkwpiznnuoyktzgrcce.supabase.co" > .env
-          echo "SUPABASE_ANON_KEY=sb_publishable_F-Ba1Eo1lzmmWdQxS4EGnA_qSBQcEwi" >> .env
+          rm -rf ~/.pub-cache
+          flutter pub cache repair
 
       - name: Fix pubspec.yaml
         run: |
-          # Убираем flutter_dotenv если не нужен
+          # Удаляем ВСЁ лишнее
           sed -i '/flutter_dotenv/d' pubspec.yaml
-          
-          # Убираем file_picker если не используется
           sed -i '/file_picker/d' pubspec.yaml
-          
-          # Убираем url_launcher если не используется
           sed -i '/url_launcher/d' pubspec.yaml
-          
-          # Убираем flutter_local_notifications если не используется
           sed -i '/flutter_local_notifications/d' pubspec.yaml
-          
-          # Убираем sqlite3_flutter_libs (мешает на Android)
           sed -i '/sqlite3_flutter_libs/d' pubspec.yaml
+          sed -i '/app_links/d' pubspec.yaml
+          
+          echo "=== pubspec.yaml ==="
+          cat pubspec.yaml
 
       - name: Get dependencies
         run: flutter pub get
