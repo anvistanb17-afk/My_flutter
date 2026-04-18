@@ -1,24 +1,51 @@
-name: Build iOS IPA for TrollStore
+name: Build Unsigned IPA
 
 on:
   workflow_dispatch:
 
 jobs:
-  build-ipa:
+  build-ios:
     runs-on: macos-latest
+    
     steps:
       - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
-      - run: flutter pub get
-      - run: flutter build ios --release --no-codesign
-      - name: Create IPA
+          flutter-version: '3.24.0'
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Create fake Xcode team
         run: |
+          # Создаём фейковый xcconfig
+          mkdir -p ios/Flutter
+          cat > ios/Flutter/Release.xcconfig << 'EOF'
+          #include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"
+          #include "Generated.xcconfig"
+          DEVELOPMENT_TEAM=YYYYYYYYYY
+          CODE_SIGN_IDENTITY=
+          CODE_SIGNING_REQUIRED=NO
+          CODE_SIGNING_ALLOWED=NO
+          PROVISIONING_PROFILE_SPECIFIER=
+          EOF
+
+      - name: Build with flutter
+        run: |
+          flutter build ios --release --no-codesign
+
+      - name: Create Payload and IPA
+        run: |
+          cd build/ios/iphoneos
           mkdir Payload
-          cp -R build/ios/iphoneos/Runner.app Payload/
-          zip -r app.ipa Payload/
-      - uses: actions/upload-artifact@v4
+          cp -r Runner.app Payload/
+          zip -r unsigned.ipa Payload
+          
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
         with:
-          name: app.ipa
-          path: app.ipa
+          name: unsigned-ios-build
+          path: build/ios/iphoneos/unsigned.ipa
