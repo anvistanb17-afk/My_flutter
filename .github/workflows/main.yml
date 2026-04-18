@@ -1,10 +1,10 @@
-name: Build Android APK (Replace Plugin)
+name: Build APK
 
 on:
   workflow_dispatch:
 
 jobs:
-  build-android:
+  build:
     runs-on: ubuntu-latest
     
     steps:
@@ -20,20 +20,68 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.24.0'
+          channel: 'stable'
           cache: true
 
-      - name: Replace app_links with uni_links
+      - name: Create .env file
         run: |
-          # Удаляем проблемный плагин из pubspec.yaml
-          sed -i '/app_links/d' pubspec.yaml
+          echo "SUPABASE_URL=https://pwkwpiznnuoyktzgrcce.supabase.co" > .env
+          echo "SUPABASE_ANON_KEY=sb_publishable_F-Ba1Eo1lzmmWdQxS4EGnA_qSBQcEwi" >> .env
+
+      - name: Fix pubspec.yaml
+        run: |
+          # Убираем flutter_dotenv если не нужен
+          sed -i '/flutter_dotenv/d' pubspec.yaml
           
-          # Добавляем uni_links
-          echo -e "\n  uni_links: ^0.5.1" >> pubspec.yaml
+          # Убираем file_picker если не используется
+          sed -i '/file_picker/d' pubspec.yaml
           
-          cat pubspec.yaml
+          # Убираем url_launcher если не используется
+          sed -i '/url_launcher/d' pubspec.yaml
+          
+          # Убираем flutter_local_notifications если не используется
+          sed -i '/flutter_local_notifications/d' pubspec.yaml
+          
+          # Убираем sqlite3_flutter_libs (мешает на Android)
+          sed -i '/sqlite3_flutter_libs/d' pubspec.yaml
 
       - name: Get dependencies
         run: flutter pub get
+
+      - name: Fix android/build.gradle
+        run: |
+          cat > android/build.gradle << 'EOF'
+          buildscript {
+              ext.kotlin_version = '1.9.0'
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+              dependencies {
+                  classpath 'com.android.tools.build:gradle:7.3.0'
+                  classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+              }
+          }
+          
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          
+          rootProject.buildDir = '../build'
+          subprojects {
+              project.buildDir = "${rootProject.buildDir}/${project.name}"
+          }
+          subprojects {
+              project.evaluationDependsOn(':app')
+          }
+          
+          tasks.register('clean', Delete) {
+              delete rootProject.buildDir
+          }
+          EOF
 
       - name: Fix android/app/build.gradle
         run: |
@@ -43,7 +91,7 @@ jobs:
               id "kotlin-android"
               id "dev.flutter.flutter-gradle-plugin"
           }
-
+          
           def localProperties = new Properties()
           def localPropertiesFile = rootProject.file("local.properties")
           if (localPropertiesFile.exists()) {
@@ -51,52 +99,56 @@ jobs:
                   localProperties.load(reader)
               }
           }
-
+          
           def flutterVersionCode = localProperties.getProperty("flutter.versionCode")
           if (flutterVersionCode == null) {
               flutterVersionCode = "1"
           }
-
+          
           def flutterVersionName = localProperties.getProperty("flutter.versionName")
           if (flutterVersionName == null) {
               flutterVersionName = "1.0"
           }
-
+          
           android {
-              namespace "com.example.myapp"
+              namespace "com.example.telegraph"
               compileSdk 34
               ndkVersion flutter.ndkVersion
-
+          
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_1_8
                   targetCompatibility JavaVersion.VERSION_1_8
               }
-
+          
               kotlinOptions {
                   jvmTarget = "1.8"
               }
-
+          
               defaultConfig {
-                  applicationId "com.example.myapp"
+                  applicationId "com.example.telegraph"
                   minSdk 21
                   targetSdk 34
                   versionCode flutterVersionCode.toInteger()
                   versionName flutterVersionName
               }
-
+          
               buildTypes {
                   release {
                       signingConfig signingConfigs.debug
                   }
               }
           }
-
+          
           flutter {
               source "../.."
           }
-
+          
           dependencies {}
           EOF
+
+      - name: Fix gradle wrapper
+        run: |
+          echo "distributionUrl=https\://services.gradle.org/distributions/gradle-7.6.3-all.zip" > android/gradle/wrapper/gradle-wrapper.properties
 
       - name: Build APK
         run: flutter build apk --release
@@ -104,5 +156,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-apk
+          name: telegraph-apk
           path: build/app/outputs/flutter-apk/app-release.apk
