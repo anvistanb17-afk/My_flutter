@@ -1,18 +1,11 @@
-name: Create Flutter Project
+name: Build Unsigned IPA
 
 on:
   workflow_dispatch:
-    inputs:
-      project_name:
-        description: 'Название проекта'
-        required: true
-        default: 'my_app'
 
 jobs:
-  create:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
+  build-ios:
+    runs-on: macos-latest
     
     steps:
       - uses: actions/checkout@v4
@@ -21,37 +14,24 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.24.0'
+          cache: true
 
-      - name: Sanitize project name
-        id: sanitize
-        run: |
-          SAFE_NAME=$(echo "${{ github.event.inputs.project_name }}" | tr '[:upper:]' '[:lower:]' | sed 's/[ -]/_/g' | sed 's/[^a-z0-9_]//g')
-          SAFE_NAME=$(echo "$SAFE_NAME" | sed 's/^_//')
-          if [[ "$SAFE_NAME" =~ ^[0-9] ]]; then
-            SAFE_NAME="app_$SAFE_NAME"
-          fi
-          echo "safe_name=$SAFE_NAME" >> $GITHUB_OUTPUT
-          echo "✅ Project name: $SAFE_NAME"
+      - name: Get dependencies
+        run: flutter pub get
 
-      - name: Create Flutter project
+      - name: Build iOS without signing
         run: |
-          flutter create ${{ steps.sanitize.outputs.safe_name }}
-
-      - name: Move files to root
-        run: |
-          PROJECT="${{ steps.sanitize.outputs.safe_name }}"
+          flutter build ios --release --no-codesign
           
-          # Копируем только содержимое папки проекта, не трогая системные файлы
-          cp -r "$PROJECT"/* .
-          cp "$PROJECT"/.gitignore . 2>/dev/null || true
-          
-          # Удаляем временную папку
-          rm -rf "$PROJECT"
-
-      - name: Commit and push
+      - name: Create Payload and IPA
         run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git add .
-          git commit -m "Create Flutter project: ${{ steps.sanitize.outputs.safe_name }}" || echo "No changes"
-          git push
+          cd build/ios/iphoneos
+          mkdir Payload
+          cp -r Runner.app Payload/
+          zip -r unsigned.ipa Payload
+          
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-ios-build
+          path: build/ios/iphoneos/unsigned.ipa
