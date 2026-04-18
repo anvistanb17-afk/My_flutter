@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android APK (Replace Plugin)
 
 on:
   workflow_dispatch:
@@ -21,6 +21,16 @@ jobs:
         with:
           flutter-version: '3.24.0'
           cache: true
+
+      - name: Replace app_links with uni_links
+        run: |
+          # Удаляем проблемный плагин из pubspec.yaml
+          sed -i '/app_links/d' pubspec.yaml
+          
+          # Добавляем uni_links
+          echo -e "\n  uni_links: ^0.5.1" >> pubspec.yaml
+          
+          cat pubspec.yaml
 
       - name: Get dependencies
         run: flutter pub get
