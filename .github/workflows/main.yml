@@ -1,156 +1,47 @@
-name: Build APK
+name: Build Flutter APK
 
+# Триггеры: при пуше в main и ручной запуск
 on:
-  workflow_dispatch:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch: # Позволяет запускать сборку вручную
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    
+    runs-on: ubuntu-latest  # Рекомендованная среда для Android сборок
+
     steps:
+      # 1. Получение кода
       - uses: actions/checkout@v4
-      
+
+      # 2. Установка Java (Одна из главных причин ошибок - неверная версия)
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '17' # Flutter 3.x требует Java 11 или 17
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      # 3. Установка Flutter
+      - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
-          channel: 'stable'
-          cache: false  # Отключаем кэш чтоб не подтягивать app_links
+          channel: 'stable' # Рекомендуется 'stable'
+          cache: true      # Ускоряет последующие сборки
 
-      - name: Clean pub cache
+      # 4. Проверка версий и получение зависимостей
+      - name: Flutter version & Pub get
         run: |
-          rm -rf ~/.pub-cache
-          flutter pub cache repair
+          flutter --version
+          flutter pub get
 
-      - name: Fix pubspec.yaml
-        run: |
-          # Удаляем ВСЁ лишнее
-          sed -i '/flutter_dotenv/d' pubspec.yaml
-          sed -i '/file_picker/d' pubspec.yaml
-          sed -i '/url_launcher/d' pubspec.yaml
-          sed -i '/flutter_local_notifications/d' pubspec.yaml
-          sed -i '/sqlite3_flutter_libs/d' pubspec.yaml
-          sed -i '/app_links/d' pubspec.yaml
-          
-          echo "=== pubspec.yaml ==="
-          cat pubspec.yaml
-
-      - name: Get dependencies
-        run: flutter pub get
-
-      - name: Fix android/build.gradle
-        run: |
-          cat > android/build.gradle << 'EOF'
-          buildscript {
-              ext.kotlin_version = '1.9.0'
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-              dependencies {
-                  classpath 'com.android.tools.build:gradle:7.3.0'
-                  classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-              }
-          }
-          
-          allprojects {
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
-          
-          rootProject.buildDir = '../build'
-          subprojects {
-              project.buildDir = "${rootProject.buildDir}/${project.name}"
-          }
-          subprojects {
-              project.evaluationDependsOn(':app')
-          }
-          
-          tasks.register('clean', Delete) {
-              delete rootProject.buildDir
-          }
-          EOF
-
-      - name: Fix android/app/build.gradle
-        run: |
-          cat > android/app/build.gradle << 'EOF'
-          plugins {
-              id "com.android.application"
-              id "kotlin-android"
-              id "dev.flutter.flutter-gradle-plugin"
-          }
-          
-          def localProperties = new Properties()
-          def localPropertiesFile = rootProject.file("local.properties")
-          if (localPropertiesFile.exists()) {
-              localPropertiesFile.withReader("UTF-8") { reader ->
-                  localProperties.load(reader)
-              }
-          }
-          
-          def flutterVersionCode = localProperties.getProperty("flutter.versionCode")
-          if (flutterVersionCode == null) {
-              flutterVersionCode = "1"
-          }
-          
-          def flutterVersionName = localProperties.getProperty("flutter.versionName")
-          if (flutterVersionName == null) {
-              flutterVersionName = "1.0"
-          }
-          
-          android {
-              namespace "com.example.telegraph"
-              compileSdk 34
-              ndkVersion flutter.ndkVersion
-          
-              compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_1_8
-                  targetCompatibility JavaVersion.VERSION_1_8
-              }
-          
-              kotlinOptions {
-                  jvmTarget = "1.8"
-              }
-          
-              defaultConfig {
-                  applicationId "com.example.telegraph"
-                  minSdk 21
-                  targetSdk 34
-                  versionCode flutterVersionCode.toInteger()
-                  versionName flutterVersionName
-              }
-          
-              buildTypes {
-                  release {
-                      signingConfig signingConfigs.debug
-                  }
-              }
-          }
-          
-          flutter {
-              source "../.."
-          }
-          
-          dependencies {}
-          EOF
-
-      - name: Fix gradle wrapper
-        run: |
-          echo "distributionUrl=https\://services.gradle.org/distributions/gradle-7.6.3-all.zip" > android/gradle/wrapper/gradle-wrapper.properties
-
+      # 5. Сборка APK (релизная версия)
       - name: Build APK
         run: flutter build apk --release
 
-      - name: Upload APK
+      # 6. Сохранение артефакта для скачивания
+      - name: Upload APK to Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: telegraph-apk
+          name: app-release  # Имя файла в архиве
           path: build/app/outputs/flutter-apk/app-release.apk
