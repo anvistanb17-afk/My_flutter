@@ -1,47 +1,44 @@
 name: Build Flutter APK
 
-# Триггеры: при пуше в main и ручной запуск
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  workflow_dispatch: # Позволяет запускать сборку вручную
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-latest  # Рекомендованная среда для Android сборок
+    runs-on: ubuntu-latest
 
     steps:
-      # 1. Получение кода
       - uses: actions/checkout@v4
 
-      # 2. Установка Java (Одна из главных причин ошибок - неверная версия)
-      - name: Setup Java
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17' # Flutter 3.x требует Java 11 или 17
+          java-version: '17'
 
-      # 3. Установка Flutter
-      - uses: subosito/flutter-action@v2
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
-          channel: 'stable' # Рекомендуется 'stable'
-          cache: true      # Ускоряет последующие сборки
+          channel: 'stable'
+          cache: true
 
-      # 4. Проверка версий и получение зависимостей
-      - name: Flutter version & Pub get
+      - name: Clean and prepare
         run: |
-          flutter --version
-          flutter pub get
+          flutter clean
+          cd android
+          ./gradlew clean
+          cd ..
 
-      # 5. Сборка APK (релизная версия)
+      - name: Get dependencies
+        run: flutter pub get
+
       - name: Build APK
         run: flutter build apk --release
 
-      # 6. Сохранение артефакта для скачивания
-      - name: Upload APK to Artifacts
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-release  # Имя файла в архиве
+          name: app-release
           path: build/app/outputs/flutter-apk/app-release.apk
