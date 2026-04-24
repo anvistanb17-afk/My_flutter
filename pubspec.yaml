@@ -1,44 +1,49 @@
-name: telegraph 
-description: "Professional Flutter messenger with glassmorphism, offline cache, and multi-platform support."
+name: telegraph
+description: A Flutter project
 publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.2.0 <4.0.0'
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: '>=3.10.0'
 
 dependencies:
   flutter:
     sdk: flutter
-  flutter_dotenv: ^5.1.0
-  # --- Бэкенд и Realtime ---
+  
+  # Бэкенд и Realtime
   supabase_flutter: ^2.6.0
-
-  flutter_local_notifications: ^17.0.0  # Добавьте эту строку
-
-  # --- Управление состоянием и локальные настройки ---
+  
+  # Уведомления
+  flutter_local_notifications: ^17.0.0
+  
+  # Управление состоянием
   provider: ^6.1.2
   shared_preferences: ^2.2.2
-
-  # --- Локальная БД (ОФФЛАЙН КЭШ) ---
-  # sqflite работает на Android/iOS
+  
+  # Локальная БД (оффлайн кэш)
   sqflite: ^2.3.3+3
-  # sqflite_common_ffi необходим для работы базы на Windows
   sqflite_common_ffi: ^2.3.3
-  # sqlite3_flutter_libs содержит необходимые .dll для Windows
   sqlite3_flutter_libs: ^0.5.24
-
-  # --- Работа с файловой системой и путями ---
+  
+  # Работа с файлами и путями
   path: any
   path_provider: ^2.1.2
-
-  # --- Мультимедиа и иконки ---
+  
+  # Мультимедиа
   image_picker: ^1.1.2
   file_picker: ^8.0.0
   cupertino_icons: ^1.0.8
-
-  # --- Системные функции ---
+  
+  # Системные функции
   url_launcher: ^6.2.4
   intl: ^0.20.2
+  
+  # Другие полезные пакеты
+  flutter_dotenv: ^5.1.0
+
+dependency_overrides:
+  path: 1.8.3
 
 dev_dependencies:
   flutter_test:
@@ -47,8 +52,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-
-  # Если решишь добавить свои картинки/шрифты, раскомментируй ниже:
-  assets:
-  - .env 
-  #   - assets/
+  
+  # Если используете .env файл
+  # assets:
+  #   - .env
