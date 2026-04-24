@@ -1,7 +1,9 @@
-name: Build Flutter APK
+name: Fastlane Build APK
 
 on:
   push:
+    branches: [ main, master ]
+  pull_request:
     branches: [ main, master ]
   workflow_dispatch:
 
@@ -10,46 +12,54 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup Java
-      uses: actions/setup-java@v3
-      with:
-        distribution: 'zulu'
-        java-version: '17'
-    
-    - name: Setup Flutter
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: '3.16.0'
-        channel: 'stable'
-    
-    - name: Clean project
-      run: |
-        flutter clean
-        rm -f pubspec.lock
-        rm -rf .dart_tool
-    
-    - name: Fix path conflict
-      run: |
-        # Добавляем dependency_overrides в конец pubspec.yaml
-        cat >> pubspec.yaml << 'EOF'
-
-dependency_overrides:
-  path: 1.8.3
-EOF
-        # Показываем файл для отладки
-        cat pubspec.yaml
-    
-    - name: Get dependencies
-      run: flutter pub get
-    
-    - name: Build APK
-      run: flutter build apk --release
-    
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: app-release
-        path: build/app/outputs/flutter-apk/app-release.apk
-        
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.16.0'
+          channel: 'stable'
+      
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.0'
+          bundler-cache: true
+      
+      - name: Install dependencies
+        run: |
+          gem install bundler
+          bundle install
+      
+      - name: Clean and prepare
+        run: |
+          flutter clean
+          rm -f pubspec.lock
+          rm -rf .dart_tool
+          flutter pub get
+      
+      - name: Run Fastlane build
+        working-directory: ./android
+        run: bundle exec fastlane build_apk
+      
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: warn
+      
+      - name: Upload split APKs (optional)
+        uses: actions/upload-artifact@v4
+        with:
+          name: split-apks
+          path: android/app/build/outputs/apk/release/*.apk
