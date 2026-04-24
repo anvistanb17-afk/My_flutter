@@ -24,18 +24,22 @@ jobs:
         flutter-version: '3.16.0'
         channel: 'stable'
     
-    - name: Clean everything
+    - name: Clean project
       run: |
         flutter clean
         rm -f pubspec.lock
         rm -rf .dart_tool
     
-    - name: Fix path dependency
+    - name: Fix path conflict
       run: |
-        # Правим pubspec.yaml через sed
-        sed -i 's/path: \^1.9.0/path: 1.8.3/g' pubspec.yaml
-        # Или если версия указана иначе
-        sed -i 's/path:.*/path: 1.8.3/g' pubspec.yaml
+        # Добавляем dependency_overrides в конец pubspec.yaml
+        cat >> pubspec.yaml << 'EOF'
+
+dependency_overrides:
+  path: 1.8.3
+EOF
+        # Показываем файл для отладки
+        cat pubspec.yaml
     
     - name: Get dependencies
       run: flutter pub get
@@ -48,3 +52,4 @@ jobs:
       with:
         name: app-release
         path: build/app/outputs/flutter-apk/app-release.apk
+        
