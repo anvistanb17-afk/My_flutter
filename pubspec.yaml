@@ -15,7 +15,7 @@ dependencies:
   supabase_flutter: ^2.6.0
   
   # Уведомления
-  flutter_local_notifications: ^17.0.0
+  
   
   # Управление состоянием
   provider: ^6.1.2
@@ -31,8 +31,8 @@ dependencies:
   path_provider: ^2.1.2
   
   # Мультимедиа
-  image_picker: ^1.1.2
-  file_picker: ^8.0.0
+  image_picker: ^1.0.0
+  file_picker: ^6.0.0
   cupertino_icons: ^1.0.8
   
   # Системные функции
