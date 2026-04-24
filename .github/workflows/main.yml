@@ -1,10 +1,6 @@
 name: Fastlane Build APK
 
 on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
@@ -33,19 +29,18 @@ jobs:
           ruby-version: '3.0'
           bundler-cache: true
       
-      - name: Install dependencies
+      - name: Install Fastlane with Bundler
         run: |
-          gem install bundler
+          bundle config set --local path 'vendor/bundle'
           bundle install
       
       - name: Clean and prepare
         run: |
           flutter clean
           rm -f pubspec.lock
-          rm -rf .dart_tool
           flutter pub get
       
-      - name: Run Fastlane build
+      - name: Build APK with Fastlane
         working-directory: ./android
         run: bundle exec fastlane build_apk
       
@@ -55,11 +50,4 @@ jobs:
           name: app-release
           path: |
             build/app/outputs/flutter-apk/app-release.apk
-            android/app/build/outputs/apk/release/*.apk
-          if-no-files-found: warn
-      
-      - name: Upload split APKs (optional)
-        uses: actions/upload-artifact@v4
-        with:
-          name: split-apks
-          path: android/app/build/outputs/apk/release/*.apk
+            ../build/app/outputs/flutter-apk/app-release.apk
