@@ -1,4 +1,4 @@
-name: Fastlane Build APK
+name: Build Flutter APK
 
 on:
   workflow_dispatch:
@@ -8,8 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
       
       - name: Setup Java
         uses: actions/setup-java@v3
@@ -20,34 +19,17 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.16.0'
+          flutter-version: '3.19.0'  # ← ФИКСИРОВАННАЯ РАБОЧАЯ ВЕРСИЯ
           channel: 'stable'
       
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.0'
-          bundler-cache: true
-      
-      - name: Install Fastlane with Bundler
-        run: |
-          bundle config set --local path 'vendor/bundle'
-          bundle install
-      
-      - name: Clean and prepare
+      - name: Build APK
         run: |
           flutter clean
-          rm -f pubspec.lock
           flutter pub get
-      
-      - name: Build APK with Fastlane
-        working-directory: ./android
-        run: bundle exec fastlane build_apk
+          flutter build apk --release
       
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: app-release
-          path: |
-            build/app/outputs/flutter-apk/app-release.apk
-            ../build/app/outputs/flutter-apk/app-release.apk
+          path: build/app/outputs/flutter-apk/app-release.apk
