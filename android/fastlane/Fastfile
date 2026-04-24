@@ -1,0 +1,23 @@
+default_platform(:android)
+
+platform :android do
+  desc "Build APK"
+  lane :build_apk do
+    # Очистка
+    sh("cd .. && flutter clean")
+    
+    # Установка зависимостей
+    sh("cd .. && flutter pub get")
+    
+    # Сборка APK
+    sh("cd .. && flutter build apk --release")
+    
+    # Успех!
+    puts "✅ APK собран: ../build/app/outputs/flutter-apk/app-release.apk"
+  end
+  
+  desc "Build split APKs"
+  lane :build_split_apks do
+    sh("cd .. && flutter build apk --split-per-abi --release")
+  end
+end
